@@ -1,19 +1,19 @@
-% Parameters source: https://sal.aalto.fi/publications/pdf-files/eluu11_public.pdf
+%Parameters source: https://sal.aalto.fi/publications/pdf-files/eluu11_public.pdf
 g=9.81;
 m = .468;
 Ix = 4.856*10^-3;
 Iy = 4.856*10^-3;
 Iz = 8.801*10^-3;
 
-% State Space Source: https://arxiv.org/ftp/arxiv/papers/1908/1908.07401.pdf
-% X' = Ax+Bu
-% y = Cx+Du
+%State Space Source: https://arxiv.org/ftp/arxiv/papers/1908/1908.07401.pdf
+%X' = Ax+Bu
+%y = Cx+Du
 
-% Inputs:
-% U1: Total Upward Force on the quad rotor along z-axis
-% U2: Pitch Torque (about x-axis)
-% U3: Roll Torque (about y-axis)
-% U4: Yaw Torque (about z-axis)
+%Inputs:
+%U1: Total Upward Force on the quad rotor along z-axis
+%U2: Pitch Torque (about x-axis)
+%U3: Roll Torque (about y-axis)
+%U4: Yaw Torque (about z-axis)
 A = [0  0  0  1  0  0  0  0  0  0  0  0;...
      0  0  0  0  1  0  0  0  0  0  0  0;...
      0  0  0  0  0  1  0  0  0  0  0  0;...
@@ -27,7 +27,7 @@ A = [0  0  0  1  0  0  0  0  0  0  0  0;...
      0  0  0  0  0  0  0  0  0  0  0  0;...
      0  0  0  0  0  0  0  0  0  0  0  0];
 
-% Note: In paper, 1/m is in wrong spot
+%Note: In paper, 1/m is in wrong spot
 B = [0 0 0 0;...
      0 0 0 0;...
      0 0 0 0;...
@@ -40,12 +40,38 @@ B = [0 0 0 0;...
      0 1/Ix 0 0;...
      0 0 1/Iy 0;...
      0 0 0 1/Iz];
-
 C = [1 0 0 0 0 0 0 0 0 0 0 0;...
      0 1 0 0 0 0 0 0 0 0 0 0;...
      0 0 1 0 0 0 0 0 0 0 0 0;...
      0 0 0 0 0 0 1 0 0 0 0 0;...
      0 0 0 0 0 0 0 1 0 0 0 0;...
-     0 0 0 0 0 0 0 0 1 0 0 0];
+     0 0 0 0 0 0 0 0 1 0 0 0]
+D = zeros(6,4)
 
-D = zeros(6,4);
+x0 = 0;
+y0 = 0;
+z0 = 0;
+xdot0 = 0;
+ydot0 = 0;
+zdot0 = 0;
+phi0 = 10*(pi/180);
+theta0 = 10*(pi/180);
+psi0 = 0;
+phidot0 = 0;
+thetadot0 = 0;
+psidot0 = 0;
+initialCondition = [x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0];
+
+%Gains
+kpp = 10;
+kdp = 0.2;
+
+kpt = 4;
+kdt = 0.2;
+
+kpps = 1;
+kdps = .4;
+
+kpz = 100;
+kdz = 20;
+
