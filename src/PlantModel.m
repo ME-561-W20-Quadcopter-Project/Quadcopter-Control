@@ -17,12 +17,12 @@ Iz = 8.801*10^-3;
 % X4: Velocity along x axis - x'
 % X5: Velocity along y axis - y'
 % X6: Velocity along z axis - z'
-% X7: Roll angle - phi
-% X8: Pitch angle - theta
-% X9: Yaw angle - psi
-% X10: Roll rate - phi'
-% X11: Pitch rate - theta'
-% X12: Yaw rate - psi'
+% X7: Roll angle - phi (y-axis)
+% X8: Pitch angle - theta (x-axis)
+% X9: Yaw angle - psi (z-axis)
+% X10: Roll rate - phi' (y-axis)
+% X11: Pitch rate - theta' (x-axis)
+% X12: Yaw rate - psi' (z-axis)
 
 % Inputs:
 % U1: Total Upward Force on the quad rotor along z-axis
@@ -77,3 +77,49 @@ C = [1 0 0 0 0 0 0 0 0 0 0 0;...
      0 0 0 0 0 0 0 0 1 0 0 0];
 
 D = zeros(6,4);
+
+continuous_system = ss(A, B, C, D);
+T_s = 0.05;
+discrete_system = c2d(continuous_system, T_s);
+
+Q = diag([1, 1, 1, ... % x, y, z
+          1, 1, 1, ... % x', y', z'
+          1, 1, 1, ... % roll, pitch, yaw
+          1, 1, 1]);   % roll', pitch', yaw'
+
+R = diag([1e3, 1e3, 1e3, 1e3]); % upward force, pitch torque, roll torque, yaw torque
+
+% u = -Kx
+K = dlqr(discrete_system.A, discrete_system.B, Q, R, 0);
+
+num_steps = 10;
+X = zeros(12, num_steps);
+% Initial Condition
+X_t = zeros(12,1);
+X(:,1) = [0, 0, 0, ... % x, y, z
+          0, 0, 0, ... % x', y', z'
+          deg2rad(5), deg2rad(0), deg2rad(0), ... % roll, pitch, yaw
+          deg2rad(0), deg2rad(0), deg2rad(0)].';  % roll', pitch', yaw'
+
+for i = 1:num_steps
+    X(:,i+1) = (A - B*K) * X(:,i);
+end
+
+Y = C * X;
+
+figure(1);
+t = 1:num_steps;
+
+subplot(1,2,1);
+hold on;
+plot(t, Y(1, t), 'r-');
+plot(t, Y(2, t), 'b-');
+plot(t, Y(3, t), 'g-');
+legend('x', 'y', 'z')
+
+subplot(1,2,2);
+hold on;
+plot(t, Y(4, t), 'r-');
+plot(t, Y(5, t), 'b-');
+plot(t, Y(6, t), 'g-');
+legend('roll (y-axis)', 'pitch (x-axis)', 'yaw (z-axis)')
