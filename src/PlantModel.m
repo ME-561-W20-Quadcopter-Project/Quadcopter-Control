@@ -1,19 +1,47 @@
+% Clear workspace
+clear all;
+close all;
+clc;
+
 % Parameters source: https://sal.aalto.fi/publications/pdf-files/eluu11_public.pdf
-g=9.81;
-m = .468;
+g = 9.81;
+m = 0.468;
 Ix = 4.856*10^-3;
 Iy = 4.856*10^-3;
 Iz = 8.801*10^-3;
 
-% State Space Source: https://arxiv.org/ftp/arxiv/papers/1908/1908.07401.pdf
-% X' = Ax+Bu
-% y = Cx+Du
+% States:
+% X1: Position along x axis - x
+% X2: Position along y axis - y
+% X3: Position along z axis (height) - z
+% X4: Velocity along x axis - x'
+% X5: Velocity along y axis - y'
+% X6: Velocity along z axis - z'
+% X7: Roll angle - phi
+% X8: Pitch angle - theta
+% X9: Yaw angle - psi
+% X10: Roll rate - phi'
+% X11: Pitch rate - theta'
+% X12: Yaw rate - psi'
 
 % Inputs:
 % U1: Total Upward Force on the quad rotor along z-axis
 % U2: Pitch Torque (about x-axis)
 % U3: Roll Torque (about y-axis)
 % U4: Yaw Torque (about z-axis)
+
+% Outputs:
+% Y1: Position along x axis - x
+% Y2: Position along y axis - y
+% Y3: Position along z axis (height) - z
+% Y4: Velocity along x axis - x'
+% Y5: Velocity along y axis - y'
+% Y6: Velocity along z axis - z'
+
+% State Space Source: https://arxiv.org/ftp/arxiv/papers/1908/1908.07401.pdf
+% X' = Ax + Bu
+% y = Cx + Du
+
 A = [0  0  0  1  0  0  0  0  0  0  0  0;...
      0  0  0  0  1  0  0  0  0  0  0  0;...
      0  0  0  0  0  1  0  0  0  0  0  0;...
