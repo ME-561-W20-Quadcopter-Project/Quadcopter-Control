@@ -65,12 +65,12 @@ C = [1 0 0 0 0 0 0 0 0 0 0 0;
 
 D = zeros(6,4);
 
-continuous_system = ss(A, B, C, D);
+continuous = ss(A, B, C, D);
 T_s = 0.05;
-discrete = c2d(continuous_system, T_s);
+discrete = c2d(continuous, T_s);
 
 %Check if this works
-impulse(discrete, 0:T_s:1)
+impulse(discrete, 0:T_s:1);
 
 %We should see that U1 gets us only translation in z, U2 couples Y2 and Y4,
 %U3 couples Y1 and Y5, and U4 gets us Y6
@@ -86,12 +86,12 @@ x_0_up = [0, 0, -1, ...
 x_0_pitch = [0, 0, 0, ...
        0, 0, 0, ...
        10, 0, 0, ...
-       0, 0, 0]'; %Pitch of 5 degrees
+       0, 0, 0]'; %Pitch of 10 degrees
 
 x_0_roll = [0, 0, 0, ...
        0, 0, 0, ...
        0, 10, 0, ...
-       0, 0, 0]'; %Roll of 5 degrees
+       0, 0, 0]'; %Roll of 10 degrees
    
 %Goal 3: Move from position (0,0,0) to within 5 cm of (1,1,1) within 5 seconds.
 x_0_trans = [-1, -1, -1, ...
@@ -100,12 +100,12 @@ x_0_trans = [-1, -1, -1, ...
        0, 0, 0]'; %Redefine origin! 
    
 %Define Q and R for the cost function. Begin with nominal ones for all.
-Q = diag([1, 1, 1, ... % x, y, z
-          1, 1, 1, ... % x', y', z'
-          1, 1, 1, ... % roll, pitch, yaw
+Q = diag([1000, 1000, 1000, ... % x, y, z
+          1, 1, 100, ... % x', y', z'
+          100, 100, 1, ... % roll, pitch, yaw
           1, 1, 1]);   % roll', pitch', yaw'
 
-R = diag([10, 6000, 6000, 1]); % upward force, pitch torque, roll torque, yaw torque
+R = diag([10, 20, 20, 1]); % upward force, pitch torque, roll torque, yaw torque
 %% Finite-Time Horizon LQR for Goal 1
 
 %Calculate number of timesteps.
@@ -116,14 +116,15 @@ nSteps = length(tSpan);
 [K, P] = LQR_LTI(discrete.A, discrete.B, Q, R, nSteps);
 
 %Propagate
-[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_up, K, A, B);
+[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_up, K, discrete.A, discrete.B);
+xlqr(3,:) = xlqr(3,:) + 1;
 %Plot
 plot_states(xlqr, tSpan);
 
 %% Finite-Time Horizon LQR for Goal 2
 
 %Calculate number of timesteps.
-tSpan = 0:T_s:0.2;
+tSpan = 0:T_s:2;
 nSteps = length(tSpan);
 
 %Determine gains
@@ -131,14 +132,14 @@ nSteps = length(tSpan);
 
 %Pitch Goal
 %Propagate
-[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_pitch, K, A, B);
+[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_pitch, K, discrete.A, discrete.B);
 
 %Plot
 plot_states(xlqr, tSpan);
 
 %Roll Goal
 %Propagate
-[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_roll, K, A, B);
+[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_roll, K, discrete.A, discrete.B);
 
 %Plot
 plot_states(xlqr, tSpan);
@@ -154,7 +155,8 @@ nSteps = length(tSpan);
 
 %Pitch Goal
 %Propagate
-[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_trans, K, A, B);
+[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_trans, K, discrete.A, discrete.B);
+xlqr(1:3,:) = xlqr(1:3,:) + 1;
 
 %Plot
 plot_states(xlqr, tSpan);
@@ -192,7 +194,7 @@ end
 function plot_states(xlqr, tSpan)
     figure();
     subplot(1, 2, 1);
-    plot(tSpan, xlqr(1, :), '-r');
+    plot(tSpan, xlqr(1, :), '-r', 'LineWidth', 2);
     hold on;
     plot(tSpan, xlqr(2, :), '-g');
     plot(tSpan, xlqr(3, :), '-b');
