@@ -47,6 +47,8 @@ C = [1 0 0 0 0 0 0 0 0 0 0 0;...
      0 0 0 0 0 0 0 1 0 0 0 0;...
      0 0 0 0 0 0 0 0 1 0 0 0]
 D = zeros(6,4)
+sys = ss(A,B,C,D);
+sysd = c2d(sys, 1/100);
 
 x0 = 0;
 y0 = 0;
@@ -62,16 +64,20 @@ thetadot0 = 0;
 psidot0 = 0;
 initialCondition = [x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0];
 
+%%
 %Gains
-kpp = 10;
-kdp = 0.2;
+kpp = 0.4754; 
+kdp = .1; 
 
-kpt = 4;
-kdt = 0.2;
+kpt = 0.4754;
+kdt = 0.1;
 
-kpps = 1;
-kdps = .4;
+kpps = 0.0901;
+kdps = 0.0486;
 
-kpz = 100;
-kdz = 20;
+kpz = 4.0670;
+kdz = 2.9031;
 
+Q = zeros(12); Q(7:9, 7:9) = eye(3);
+R = 1;
+%K = lqr(A,B,Q,R);
