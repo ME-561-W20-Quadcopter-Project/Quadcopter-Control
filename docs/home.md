@@ -22,4 +22,4 @@
 ## Documents
 
 1. [Project Proposal](1.%20ME%20561%20Project%20Proposal.pdf)
-2. [Final Report (Overleaf)](https://www.overleaf.com/read/kyjvdsxkfnmg)
+2. [Final Report - Overleaf (Read-Only)](https://www.overleaf.com/read/kyjvdsxkfnmg)
