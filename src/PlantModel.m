@@ -56,13 +56,14 @@ z0 = 0;
 xdot0 = 0;
 ydot0 = 0;
 zdot0 = 0;
-phi0 = 10*(pi/180);
-theta0 = 10*(pi/180);
+phi0 = 5*(pi/180)*0;
+theta0 = 5*(pi/180)*0;
 psi0 = 0;
 phidot0 = 0;
 thetadot0 = 0;
 psidot0 = 0;
 initialCondition = [x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0];
+
 
 %%
 %Gains
@@ -81,3 +82,4 @@ kdz = 2.9031;
 Q = zeros(12); Q(7:9, 7:9) = eye(3);
 R = 1;
 %K = lqr(A,B,Q,R);
+
