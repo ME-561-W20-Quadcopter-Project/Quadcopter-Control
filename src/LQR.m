@@ -76,6 +76,11 @@ impulse(discrete, 0:T_s:1);
 %U3 couples Y1 and Y5, and U4 gets us Y6
 
 %% Define goals
+% Desired position
+x_d = 0;
+y_d = 0;
+z_d = 0;
+
 %Goal 1: settle at 1m height <2s
 x_0_up = [0, 0, -1, ...
           0, 0, 0, ...
