@@ -66,7 +66,7 @@ C = [1 0 0 0 0 0 0 0 0 0 0 0;
 D = zeros(6,4);
 
 continuous = ss(A, B, C, D);
-T_s = 0.05;
+T_s = 0.01;
 discrete = c2d(continuous, T_s);
 
 %Check if this works
@@ -78,31 +78,31 @@ impulse(discrete, 0:T_s:1);
 %% Define goals
 %Goal 1: settle at 1m height <2s
 x_0_up = [0, 0, -1, ...
-          0, 0, 0, ...
-          0, 0, 0, ...
-          0, 0, 0]'; %Redefine origin! 
+       0, 0, 0, ...
+       0, 0, 0, ...
+       0, 0, 0]'; %Redefine origin! 
 
 %Goal 2: Stabilize from a 10-degree roll and pitch with <3deg overshoot
 x_0_pitch = [0, 0, 0, ...
-             0, 0, 0, ...
-             10, 0, 0, ...
-             0, 0, 0]'; %Pitch of 10 degrees
+       0, 0, 0, ...
+       10, 0, 0, ...
+       0, 0, 0]'; %Pitch of 10 degrees
 
 x_0_roll = [0, 0, 0, ...
-            0, 0, 0, ...
-            0, 10, 0, ...
-            0, 0, 0]'; %Roll of 10 degrees
+       0, 0, 0, ...
+       0, 10, 0, ...
+       0, 0, 0]'; %Roll of 10 degrees
    
 %Goal 3: Move from position (0,0,0) to within 5 cm of (1,1,1) within 5 seconds.
 x_0_trans = [-1, -1, -1, ...
-             0, 0, 0, ...
-             0, 0, 0, ...
-             0, 0, 0]'; %Redefine origin! 
+       0, 0, 0, ...
+       0, 0, 0, ...
+       0, 0, 0]'; %Redefine origin! 
    
 %Define Q and R for the cost function. Begin with nominal ones for all.
 Q = diag([1000, 1000, 1000, ... % x, y, z
           1, 1, 100, ... % x', y', z'
-          100, 100, 1, ... % roll, pitch, yaw
+          200, 200, 1, ... % roll, pitch, yaw
           1, 1, 1]);   % roll', pitch', yaw'
 
 R = diag([10, 20, 20, 1]); % upward force, pitch torque, roll torque, yaw torque
@@ -117,9 +117,12 @@ nSteps = length(tSpan);
 
 %Propagate
 [ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_up, K, discrete.A, discrete.B);
+%States are relative to origin, so we need to add the reference to the
+%state to get global coordinates
 xlqr(3,:) = xlqr(3,:) + 1;
 %Plot
 plot_states(xlqr, tSpan);
+zd = diff(xlqr(6,:))./T_s
 
 %% Finite-Time Horizon LQR for Goal 2
 
@@ -130,19 +133,22 @@ nSteps = length(tSpan);
 %Determine gains
 [K, P] = LQR_LTI(discrete.A, discrete.B, Q, R, nSteps);
 
+
 %Pitch Goal
 %Propagate
 [ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_pitch, K, discrete.A, discrete.B);
 
 %Plot
 plot_states(xlqr, tSpan);
-
-%Roll Goal
+yd = diff(xlqr(5,:))./T_s
+pd = diff(xlqr(7,:))./T_s
 %Propagate
 [ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_roll, K, discrete.A, discrete.B);
 
 %Plot
 plot_states(xlqr, tSpan);
+xd = diff(xlqr(4,:))./T_s
+rd = diff(xlqr(8,:))./T_s
 
 %% Finite-Time Horizon For Goal 3
 
@@ -184,7 +190,7 @@ function [ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0, K, A, B)
     ulqr = zeros(nInputs, nSteps);
     xlqr = zeros(nStates, nSteps);
     xlqr(:, 1) = x_0; 
-    
+
     for i = 1:(nSteps -  1)
         ulqr(:,i) = K(:,:,i) * xlqr(:,i);
         xlqr(:,i+1) = (A*xlqr(:, i) - B*ulqr(:, i));
@@ -198,7 +204,7 @@ function plot_states(xlqr, tSpan)
     hold on;
     plot(tSpan, xlqr(2, :), '-g');
     plot(tSpan, xlqr(3, :), '-b');
-    plot(tSpan, xlqr(4, :), '--r');
+    plot(tSpan, xlqr(4, :), '--r', 'LineWidth', 2);
     plot(tSpan, xlqr(5, :), '--g');
     plot(tSpan, xlqr(6, :), '--b');
     legend('x', 'y', 'z', 'x`', 'y`', 'z`');
