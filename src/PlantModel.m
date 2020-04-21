@@ -79,7 +79,6 @@ kdps = 0.0486;
 kpz = 4.0670;
 kdz = 2.9031;
 
-Q = zeros(12); Q(7:9, 7:9) = eye(3);
-R = 1;
-%K = lqr(A,B,Q,R);
+%% Load LQR gains
+LQRGoal1 = matfile('FiniteLQRGoal_1_K.mat');
 

@@ -83,18 +83,18 @@ x_0_up = [0, 0, -1, ...
        0, 0, 0]'; %Redefine origin! 
 
 %Goal 2: Stabilize from a 10-degree roll and pitch with <3deg overshoot
-x_0_pitch = [0, 0, 0, ...
+x_0_pitchroll = [0, 0, 0, ...
        0, 0, 0, ...
-       10, 0, 0, ...
-       0, 0, 0]'; %Pitch of 10 degrees
+       10*(pi/180), 10*(pi/180), 0, ...
+       0, 0, 0]'; %Pitch and roll of 10 degrees
 
 x_0_roll = [0, 0, 0, ...
        0, 0, 0, ...
-       0, 10, 0, ...
+       0, 10*(pi/180), 0, ...
        0, 0, 0]'; %Roll of 10 degrees
    
 %Goal 3: Move from position (0,0,0) to within 5 cm of (1,1,1) within 5 seconds.
-x_0_trans = [-1, -1, -1, ...
+x_0_trans = [-1, -1, 0, ...
        0, 0, 0, ...
        0, 0, 0, ...
        0, 0, 0]'; %Redefine origin! 
@@ -114,6 +114,8 @@ nSteps = length(tSpan);
 
 %Determine gains
 [K, P] = LQR_LTI(discrete.A, discrete.B, Q, R, nSteps);
+FiniteLQR_Goal_1_K = K;
+save('FiniteLQRGoal_1_K.mat', 'K');
 
 %Propagate
 [ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_up, K, discrete.A, discrete.B);
@@ -122,12 +124,31 @@ nSteps = length(tSpan);
 xlqr(3,:) = xlqr(3,:) + 1;
 %Plot
 plot_states(xlqr, tSpan);
-zd = diff(xlqr(6,:))./T_s
+zd = diff(xlqr(6,:))./T_s;
+
+%Simulate nonlinear model
+[x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_up); 
+set_param('LQRNonlinearSim', 'StopTime', '2')
+simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
+
+time = simout.allVals.Time(:,1);
+figure();
+plot(time, simout.z+1, 'LineStyle', '--', 'color',[0 0.5 0], 'LineWidth', 2); hold on;
+plot(time, xlqr(3,:), '-b','LineWidth', 1);
+xlabel('Time (s)');
+ylabel('Z (m)');
+legend({'Nonlinear Model', 'Linear Model'});
+
+
 
 %% Finite-Time Horizon LQR for Goal 2
+Q = diag([0, 0, 0, ... % x, y, z
+          0, 0, 0, ... % x', y', z'
+          200, 200, 1, ... % roll, pitch, yaw
+          10, 10, 1]);   % roll', pitch', yaw'
 
 %Calculate number of timesteps.
-tSpan = 0:T_s:2;
+tSpan = 0:T_s:4;
 nSteps = length(tSpan);
 
 %Determine gains
@@ -136,22 +157,40 @@ nSteps = length(tSpan);
 
 %Pitch Goal
 %Propagate
-[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_pitch, K, discrete.A, discrete.B);
+[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_pitchroll, K, discrete.A, discrete.B);
 
 %Plot
 plot_states(xlqr, tSpan);
 yd = diff(xlqr(5,:))./T_s
 pd = diff(xlqr(7,:))./T_s
+
 %Propagate
-[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_roll, K, discrete.A, discrete.B);
+%[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_roll, K, discrete.A, discrete.B);
 
 %Plot
-plot_states(xlqr, tSpan);
-xd = diff(xlqr(4,:))./T_s
-rd = diff(xlqr(8,:))./T_s
+%plot_states(xlqr, tSpan);
+%xd = diff(xlqr(4,:))./T_s
+%rd = diff(xlqr(8,:))./T_s
+
+%Simulate nonlinear model
+[x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_pitchroll); 
+set_param('LQRNonlinearSim', 'StopTime', '4')
+simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
+
+time = simout.allVals.Time(:,1);
+figure();
+plot(time, simout.roll, 'LineStyle', '--', 'color',[0 0.5 0], 'LineWidth', 2); hold on;
+plot(time, xlqr(8,:), '-b','LineWidth', 1);
+%plot(time, simout.roll, 'LineStyle', '--', 'color',[0 0.5 0], 'LineWidth', 2); hold on;
+xlabel('Time (s)');
+ylabel('Pitch/Roll Angle (rad)');
+legend({'Nonlinear Model', 'Linear Model'});
 
 %% Finite-Time Horizon For Goal 3
-
+Q = diag([1000, 1000, 0, ... % x, y, z
+          0, 0, 0, ... % x', y', z'
+          200, 200, 1, ... % roll, pitch, yaw
+          0, 0, 1]);   % roll', pitch', yaw'
 %Calculate number of timesteps.
 tSpan = 0:T_s:5;
 nSteps = length(tSpan);
@@ -162,10 +201,24 @@ nSteps = length(tSpan);
 %Pitch Goal
 %Propagate
 [ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_trans, K, discrete.A, discrete.B);
-xlqr(1:3,:) = xlqr(1:3,:) + 1;
+xlqr(1:2,:) = xlqr(1:2,:) + 1;
 
 %Plot
 plot_states(xlqr, tSpan);
+
+%Simulate nonlinear model
+[x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_trans); 
+set_param('LQRNonlinearSim', 'StopTime', '5')
+simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
+
+time = simout.allVals.Time(:,1);
+figure();
+plot(time, simout.x+1, 'LineStyle', '--', 'color',[0 0.5 0], 'LineWidth', 2); hold on;
+plot(time, xlqr(1,:), '-b','LineWidth', 1);
+%plot(time, simout.roll, 'LineStyle', '--', 'color',[0 0.5 0], 'LineWidth', 2); hold on;
+xlabel('Time (s)');
+ylabel('x (m)');
+legend({'Nonlinear Model', 'Linear Model'});
 
 %% Helper Functions
 
@@ -223,5 +276,9 @@ function plot_states(xlqr, tSpan)
     legend('Pitch (about x)', 'Roll (about y)', 'Yaw (about z)', 'Pitch Rate', 'Roll Rate', 'Yaw Rate');
     title("Angular Displacements(-) and Velocities(--)");
     xlabel("Time(s)");
-    ylabel("Displacement (deg)");
+    ylabel("Displacement (rad)");
+end
+
+function [x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(X0)
+x0=X0(1); y0=X0(2); z0=X0(3); xdot0=X0(4); ydot0=X0(5); zdot0=X0(6); phi0=X0(7); theta0=X0(8); psi0=X0(9); phidot0=X0(10); thetadot0=X0(11); psidot0=X0(12);
 end
