@@ -1,9 +1,14 @@
 % Clear workspace
-clear all; close all; clc;
+clear all;
+close all;
+clc;
 
 % Parameters source: https://sal.aalto.fi/publications/pdf-files/eluu11_public.pdf
-g = 9.81;   m = 0.468;  Ix = 4.856*10^-3;
-Iy = 4.856*10^-3;   Iz = 8.801*10^-3;
+g = 9.81;
+m = 0.468;
+Ix = 4.856*10^-3;
+Iy = 4.856*10^-3;
+Iz = 8.801*10^-3;
 
 % States:
 % X1: x                         X4: x'
@@ -69,39 +74,39 @@ continuous = ss(A, B, C, D);
 T_s = 0.01;
 discrete = c2d(continuous, T_s);
 
-%Check if this works
+% Check if this works
 impulse(discrete, 0:T_s:1);
 
-%We should see that U1 gets us only translation in z, U2 couples Y2 and Y4,
-%U3 couples Y1 and Y5, and U4 gets us Y6
+% We should see that U1 gets us only translation in z, U2 couples Y2 and Y4,
+% U3 couples Y1 and Y5, and U4 gets us Y6
 
 %% Define goals
-%Goal 1: settle at 1m height <2s
+% Goal 1: settle at 1m height <2s
 x_0_up = [0, 0, -1, ...
-       0, 0, 0, ...
-       0, 0, 0, ...
-       0, 0, 0]'; %Redefine origin! 
+          0, 0, 0, ...
+          0, 0, 0, ...
+          0, 0, 0]'; %Redefine origin! 
 
-%Goal 2: Stabilize from a 10-degree roll and pitch with <3deg overshoot
+% Goal 2: Stabilize from a 10-degree roll and pitch with <3deg overshoot
 x_0_pitchroll = [0, 0, 0, ...
-       0, 0, 0, ...
-       10*(pi/180), 10*(pi/180), 0, ...
-       0, 0, 0]'; %Pitch and roll of 10 degrees
+                 0, 0, 0, ...
+                 10*(pi/180), 10*(pi/180), 0, ...
+                 0, 0, 0]'; %Pitch and roll of 10 degrees (convert to radians)
 
 x_0_roll = [0, 0, 0, ...
-       0, 0, 0, ...
-       0, 10*(pi/180), 0, ...
-       0, 0, 0]'; %Roll of 10 degrees
+            0, 0, 0, ...
+            0, 10*(pi/180), 0, ...
+            0, 0, 0]'; %Roll of 10 degrees (convert to radians)
    
-%Goal 3: Move from position (0,0,0) to within 5 cm of (1,1,1) within 5 seconds.
+% Goal 3: Move from position (0,0,0) to within 5 cm of (1,1,1) within 5 seconds.
 x_0_trans = [-1, -1, 0, ...
-       0, 0, 0, ...
-       0, 0, 0, ...
-       0, 0, 0]'; %Redefine origin! 
+             0, 0, 0, ...
+             0, 0, 0, ...
+             0, 0, 0]'; %Redefine origin! 
 
 %% Finite-Time Horizon LQR for Goal 1
 
-%Define Q and R for the cost function. Begin with nominal ones for all.
+% Define Q and R for the cost function. Begin with nominal ones for all.
 Q = diag([1000, 1000, 1000, ... % x, y, z
           1, 1, 100, ... % x', y', z'
           200, 200, 1, ... % roll, pitch, yaw
@@ -109,15 +114,15 @@ Q = diag([1000, 1000, 1000, ... % x, y, z
 
 R = diag([10, 20, 20, 1]); % upward force, pitch torque, roll torque, yaw torque
 
-%Calculate number of timesteps.
+% Calculate number of timesteps.
 tSpan = 0:T_s:2;
 nSteps = length(tSpan);
 
-%Determine gains
+% Determine gains
 [K, P] = LQR_LTI(discrete.A, discrete.B, Q, R, nSteps);
 FiniteLQR_Goal_1_K = K;
 
-%Simulate nonlinear model
+% Simulate nonlinear model
 [x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_up);
 set_param('LQRNonlinearSim', 'StopTime', '2')
 simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
@@ -158,7 +163,7 @@ for i = 1:nSteps
     K(:,:,i) = K_const;
 end
 
-%Simulate nonlinear model
+% Simulate nonlinear model
 [x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_up);
 set_param('LQRNonlinearSim', 'StopTime', '2')
 simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
@@ -186,14 +191,14 @@ Q = diag([0, 0, 0, ... % x, y, z
 
 R = diag([10, 20, 20, 1]); % upward force, pitch torque, roll torque, yaw torque
 
-%Calculate number of timesteps.
+% Calculate number of timesteps.
 tSpan = 0:T_s:4;
 nSteps = length(tSpan);
 
-%Determine gains
+% Determine gains
 [K, P] = LQR_LTI(discrete.A, discrete.B, Q, R, nSteps);
 
-%Simulate nonlinear model
+% Simulate nonlinear model
 [x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_pitchroll);
 set_param('LQRNonlinearSim', 'StopTime', '4')
 simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
@@ -234,7 +239,7 @@ for i = 1:nSteps
     K(:,:,i) = K_const;
 end
 
-%Simulate nonlinear model
+% Simulate nonlinear model
 [x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_pitchroll);
 set_param('LQRNonlinearSim', 'StopTime', '4')
 simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
@@ -262,14 +267,14 @@ Q = diag([1000, 1000, 1000, ... % x, y, z
       
 R = diag([1, 20, 20, 1]); % upward force, pitch torque, roll torque, yaw torque
 
-%Calculate number of timesteps.
+% Calculate number of timesteps.
 tSpan = 0:T_s:5;
 nSteps = length(tSpan);
 
-%Determine gains
+% Determine gains
 [K, P] = LQR_LTI(discrete.A, discrete.B, Q, R, nSteps);
 
-%Simulate nonlinear model
+% Simulate nonlinear model
 [x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_trans);
 set_param('LQRNonlinearSim', 'StopTime', '5')
 simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
@@ -310,7 +315,7 @@ for i = 1:nSteps
     K(:,:,i) = K_const;
 end
 
-%Simulate nonlinear model
+% Simulate nonlinear model
 [x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_trans);
 set_param('LQRNonlinearSim', 'StopTime', '5')
 simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
@@ -332,11 +337,11 @@ plot_states(state, tSpan);
 %% Helper Functions
 
 function [K, P] = LQR_LTI(A, B, Q, R, nSteps)
-    %Set P up
+    % Set P up
     P = zeros(size(Q, 1), size(Q, 2), nSteps);
-    %Initial value of P
+    % Initial value of P
     P(:, :, nSteps) = 1/2 * Q;
-    %Set K up, initial K is 0, so this is fine.
+    % Set K up, initial K is 0, so this is fine.
     K = zeros(length(R), length(Q), nSteps);
         
     for i = nSteps-1:-1:1
@@ -348,7 +353,7 @@ function [K, P] = LQR_LTI(A, B, Q, R, nSteps)
 end
 
 function [ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0, K, A, B)
-    %Set up for propagation
+    % Set up for propagation
     ulqr = zeros(nInputs, nSteps);
     xlqr = zeros(nStates, nSteps);
     xlqr(:, 1) = x_0; 
