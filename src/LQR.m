@@ -1,14 +1,9 @@
 % Clear workspace
-clear all;
-close all;
-clc;
+clear all; close all; clc;
 
 % Parameters source: https://sal.aalto.fi/publications/pdf-files/eluu11_public.pdf
-g = 9.81;
-m = 0.468;
-Ix = 4.856*10^-3;
-Iy = 4.856*10^-3;
-Iz = 8.801*10^-3;
+g = 9.81;   m = 0.468;  Ix = 4.856*10^-3;
+Iy = 4.856*10^-3;   Iz = 8.801*10^-3;
 
 % States:
 % X1: x                         X4: x'
@@ -74,46 +69,39 @@ continuous = ss(A, B, C, D);
 T_s = 0.01;
 discrete = c2d(continuous, T_s);
 
-% Check if this works
+%Check if this works
 impulse(discrete, 0:T_s:1);
 
-% We should see that U1 gets us only translation in z, U2 couples Y2 and Y4,
-% U3 couples Y1 and Y5, and U4 gets us Y6
+%We should see that U1 gets us only translation in z, U2 couples Y2 and Y4,
+%U3 couples Y1 and Y5, and U4 gets us Y6
 
 %% Define goals
-% Goal 1: settle at 1m height <2s
-% LQR drives states to 0, so we redefine initial
-% condition to be -1 in z direction such that
-% controller gives a positive z input as if
-% quadcopter drives from origin up 1 m in z direction
+%Goal 1: settle at 1m height <2s
 x_0_up = [0, 0, -1, ...
-          0, 0, 0, ...
-          0, 0, 0, ...
-          0, 0, 0]';
+       0, 0, 0, ...
+       0, 0, 0, ...
+       0, 0, 0]'; %Redefine origin! 
 
-% Goal 2: Stabilize from a 10-degree roll and pitch with <3deg overshoot
-x_0_pitch = [0, 0, 0, ...
-             0, 0, 0, ...
-             10, 0, 0, ...
-             0, 0, 0]'; %Pitch of 10 degrees
+%Goal 2: Stabilize from a 10-degree roll and pitch with <3deg overshoot
+x_0_pitchroll = [0, 0, 0, ...
+       0, 0, 0, ...
+       10*(pi/180), 10*(pi/180), 0, ...
+       0, 0, 0]'; %Pitch and roll of 10 degrees
 
 x_0_roll = [0, 0, 0, ...
-            0, 0, 0, ...
-            0, 10, 0, ...
-            0, 0, 0]'; %Roll of 10 degrees
+       0, 0, 0, ...
+       0, 10*(pi/180), 0, ...
+       0, 0, 0]'; %Roll of 10 degrees
    
-% Goal 3: Move from position (0,0,0) to within 5 cm of (1,1,1) within 5 seconds.
-% Redefine initial condition to be -1 in x, y, and z direction so
-% when LQR drives states to 0, it is as if quadcopter drives from
-% origin to (1,1,1)
-x_0_trans = [-1, -1, -1, ...
-             0, 0, 0, ...
-             0, 0, 0, ...
-             0, 0, 0]';
+%Goal 3: Move from position (0,0,0) to within 5 cm of (1,1,1) within 5 seconds.
+x_0_trans = [-1, -1, 0, ...
+       0, 0, 0, ...
+       0, 0, 0, ...
+       0, 0, 0]'; %Redefine origin! 
 
 %% Finite-Time Horizon LQR for Goal 1
 
-% Cost matrices
+%Define Q and R for the cost function. Begin with nominal ones for all.
 Q = diag([1000, 1000, 1000, ... % x, y, z
           1, 1, 100, ... % x', y', z'
           200, 200, 1, ... % roll, pitch, yaw
@@ -121,21 +109,32 @@ Q = diag([1000, 1000, 1000, ... % x, y, z
 
 R = diag([10, 20, 20, 1]); % upward force, pitch torque, roll torque, yaw torque
 
-% Calculate number of timesteps.
+%Calculate number of timesteps.
 tSpan = 0:T_s:2;
 nSteps = length(tSpan);
 
-% Determine gains
+%Determine gains
 [K, P] = LQR_LTI(discrete.A, discrete.B, Q, R, nSteps);
+FiniteLQR_Goal_1_K = K;
 
-% Propagate
-[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_up, K, discrete.A, discrete.B);
-% States are relative to origin, so we need to add the reference to the
-% state to get global coordinates
-xlqr(3,:) = xlqr(3,:) + 1;
-% Plot
-plot_states(xlqr, tSpan);
-zd = diff(xlqr(6,:))./T_s
+%Simulate nonlinear model
+[x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_up);
+set_param('LQRNonlinearSim', 'StopTime', '2')
+simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
+
+state = [simout.x';
+         simout.y';
+         simout.z' + 1;
+         simout.xdot';
+         simout.ydot';
+         simout.zdot';
+         simout.pitch';
+         simout.roll';
+         simout.yaw';
+         simout.dotpitch';
+         simout.dotroll';
+         simout.dotyaw'];
+plot_states(state, tSpan);
 
 %% Infinite-Time Horizon LQR for Goal 1
 
@@ -152,103 +151,142 @@ tSpan = 0:T_s:2;
 nSteps = length(tSpan);
 
 % Determine Gains
-[X, K, L, info] = idare(discrete.A, discrete.B, Q, R, [], []);
-[ulqr, xlqr] = propagate_inf(nInputs, nStates, nSteps, x_0_up, K, discrete.A, discrete.B);
-xlqr(3,:) = xlqr(3,:) + 1;
-plot_states(xlqr, tSpan);
-zd = diff(xlqr(6,:))./T_s;
+[X, K_const, L, info] = idare(discrete.A, discrete.B, Q, R, [], []);
+
+K = zeros(nInputs, nStates, nSteps);
+for i = 1:nSteps
+    K(:,:,i) = K_const;
+end
+
+%Simulate nonlinear model
+[x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_up);
+set_param('LQRNonlinearSim', 'StopTime', '2')
+simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
+
+state = [simout.x';
+         simout.y';
+         simout.z' + 1;
+         simout.xdot';
+         simout.ydot';
+         simout.zdot';
+         simout.pitch';
+         simout.roll';
+         simout.yaw';
+         simout.dotpitch';
+         simout.dotroll';
+         simout.dotyaw'];
+plot_states(state, tSpan);
 
 %% Finite-Time Horizon LQR for Goal 2
 
-% Cost matrices
-Q = diag([1000, 1000, 1000, ... % x, y, z
-          1, 1, 100, ... % x', y', z'
-          200, 200, 1, ... % roll, pitch, yaw
-          1, 1, 1]);   % roll', pitch', yaw'
+Q = diag([0, 0, 0, ... % x, y, z
+          0, 0, 0, ... % x', y', z'
+          1000, 1000, 1, ... % roll, pitch, yaw
+          10, 10, 1]);   % roll', pitch', yaw'
 
 R = diag([10, 20, 20, 1]); % upward force, pitch torque, roll torque, yaw torque
 
-% Calculate number of timesteps.
-tSpan = 0:T_s:2;
+%Calculate number of timesteps.
+tSpan = 0:T_s:4;
 nSteps = length(tSpan);
 
-% Determine gains
+%Determine gains
 [K, P] = LQR_LTI(discrete.A, discrete.B, Q, R, nSteps);
 
-% Pitch Goal
-% Propagate
-[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_pitch, K, discrete.A, discrete.B);
+%Simulate nonlinear model
+[x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_pitchroll);
+set_param('LQRNonlinearSim', 'StopTime', '4')
+simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
 
-% Plot
-plot_states(xlqr, tSpan);
-yd = diff(xlqr(5,:))./T_s;
-pd = diff(xlqr(7,:))./T_s;
-% Propagate
-[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_roll, K, discrete.A, discrete.B);
-
-% Plot
-plot_states(xlqr, tSpan);
-xd = diff(xlqr(4,:))./T_s;
-rd = diff(xlqr(8,:))./T_s;
+state = [simout.x';
+         simout.y';
+         simout.z' + 1;
+         simout.xdot';
+         simout.ydot';
+         simout.zdot';
+         simout.pitch';
+         simout.roll';
+         simout.yaw';
+         simout.dotpitch';
+         simout.dotroll';
+         simout.dotyaw'];
+plot_states(state, tSpan);
 
 %% Infinite-Time Horizon LQR for Goal 2
 
 % Cost matrices
-Q = diag([1000, 1000, 1, ... % x, y, z
-          10, 10, 1, ... % x', y', z'
-          1000, 1000, 1, ... % roll, pitch, yaw
-          1, 1, 1]);   % roll', pitch', yaw'
+Q = diag([0, 0, 0, ... % x, y, z
+          0, 0, 0, ... % x', y', z'
+          1000, 1000, 0, ... % roll, pitch, yaw
+          10, 10, 0]);   % roll', pitch', yaw'
 
 R = diag([10, 20, 20, 1]); % upward force, pitch torque, roll torque, yaw torque
 
 % Calculate number of timesteps.
-tSpan = 0:T_s:2;
+tSpan = 0:T_s:4;
 nSteps = length(tSpan);
 
 % Determine gains
 [X, K, L, info] = idare(discrete.A, discrete.B, Q, R, [], []);
 
+K = zeros(nInputs, nStates, nSteps);
+for i = 1:nSteps
+    K(:,:,i) = K_const;
+end
 
-% Pitch Goal
-% Propagate
-[ulqr, xlqr] = propagate_inf(nInputs, nStates, nSteps, x_0_pitch, K, discrete.A, discrete.B);
+%Simulate nonlinear model
+[x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_pitchroll);
+set_param('LQRNonlinearSim', 'StopTime', '4')
+simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
 
-% Plot
-plot_states(xlqr, tSpan);
-yd = diff(xlqr(5,:))./T_s;
-pd = diff(xlqr(7,:))./T_s;
-% Propagate
-[ulqr, xlqr] = propagate_inf(nInputs, nStates, nSteps, x_0_roll, K, discrete.A, discrete.B);
-
-% Plot
-plot_states(xlqr, tSpan);
-xd = diff(xlqr(4,:))./T_s;
-rd = diff(xlqr(8,:))./T_s;
+state = [simout.x';
+         simout.y';
+         simout.z' + 1;
+         simout.xdot';
+         simout.ydot';
+         simout.zdot';
+         simout.pitch';
+         simout.roll';
+         simout.yaw';
+         simout.dotpitch';
+         simout.dotroll';
+         simout.dotyaw'];
+plot_states(state, tSpan);
 
 %% Finite-Time Horizon For Goal 3
 
-% Cost matrices
 Q = diag([1000, 1000, 1000, ... % x, y, z
-          1, 1, 100, ... % x', y', z'
-          200, 200, 1, ... % roll, pitch, yaw
-          1, 1, 1]);   % roll', pitch', yaw'
+          0, 0, 0, ... % x', y', z'
+          1000, 1000, 0, ... % roll, pitch, yaw
+          0, 0, 0]);   % roll', pitch', yaw'
+      
+R = diag([1, 20, 20, 1]); % upward force, pitch torque, roll torque, yaw torque
 
-R = diag([10, 20, 20, 1]); % upward force, pitch torque, roll torque, yaw torque
-
-% Calculate number of timesteps.
+%Calculate number of timesteps.
 tSpan = 0:T_s:5;
 nSteps = length(tSpan);
 
-% Determine gains
+%Determine gains
 [K, P] = LQR_LTI(discrete.A, discrete.B, Q, R, nSteps);
 
-% Pitch Goal
-% Propagate
-[ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0_trans, K, discrete.A, discrete.B);
-xlqr(1:3,:) = xlqr(1:3,:) + 1;
+%Simulate nonlinear model
+[x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_trans);
+set_param('LQRNonlinearSim', 'StopTime', '5')
+simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
 
-% Plot
-plot_states(xlqr, tSpan);
+state = [simout.x';
+         simout.y';
+         simout.z' + 1;
+         simout.xdot';
+         simout.ydot';
+         simout.zdot';
+         simout.pitch';
+         simout.roll';
+         simout.yaw';
+         simout.dotpitch';
+         simout.dotroll';
+         simout.dotyaw'];
+plot_states(state, tSpan);
 
 %% Infinite-Time Horizon For Goal 3
 
@@ -267,22 +305,38 @@ nSteps = length(tSpan);
 % Determine gains
 [X, K, L, info] = idare(discrete.A, discrete.B, Q, R, [], []);
 
-% Pitch Goal
-% Propagate
-[ulqr, xlqr] = propagate_inf(nInputs, nStates, nSteps, x_0_trans, K, discrete.A, discrete.B);
-xlqr(1:3,:) = xlqr(1:3,:) + 1;
+K = zeros(nInputs, nStates, nSteps);
+for i = 1:nSteps
+    K(:,:,i) = K_const;
+end
 
-% Plot
-plot_states(xlqr, tSpan);
+%Simulate nonlinear model
+[x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(x_0_trans);
+set_param('LQRNonlinearSim', 'StopTime', '5')
+simout = sim('LQRNonlinearSim', 'FixedStep', '.01');
+
+state = [simout.x';
+         simout.y';
+         simout.z' + 1;
+         simout.xdot';
+         simout.ydot';
+         simout.zdot';
+         simout.pitch';
+         simout.roll';
+         simout.yaw';
+         simout.dotpitch';
+         simout.dotroll';
+         simout.dotyaw'];
+plot_states(state, tSpan);
 
 %% Helper Functions
 
 function [K, P] = LQR_LTI(A, B, Q, R, nSteps)
-    % Set P up
+    %Set P up
     P = zeros(size(Q, 1), size(Q, 2), nSteps);
-    % Initial value of P
+    %Initial value of P
     P(:, :, nSteps) = 1/2 * Q;
-    % Set K up, initial K is 0, so this is fine.
+    %Set K up, initial K is 0, so this is fine.
     K = zeros(length(R), length(Q), nSteps);
         
     for i = nSteps-1:-1:1
@@ -294,7 +348,7 @@ function [K, P] = LQR_LTI(A, B, Q, R, nSteps)
 end
 
 function [ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0, K, A, B)
-    % Set up for propagation
+    %Set up for propagation
     ulqr = zeros(nInputs, nSteps);
     xlqr = zeros(nStates, nSteps);
     xlqr(:, 1) = x_0; 
@@ -305,21 +359,9 @@ function [ulqr, xlqr] = propagate(nInputs, nStates, nSteps, x_0, K, A, B)
     end
 end
 
-function [ulqr, xlqr] = propagate_inf(nInputs, nStates, nSteps, x_0, K, A, B)
-    % Set up for propagation
-    ulqr = zeros(nInputs, nSteps);
-    xlqr = zeros(nStates, nSteps);
-    xlqr(:, 1) = x_0; 
-
-    for i = 1:(nSteps -  1)
-        ulqr(:,i) = K * xlqr(:,i);
-        xlqr(:,i+1) = (A*xlqr(:, i) - B*ulqr(:, i));
-    end
-end
-
 function plot_states(xlqr, tSpan)
     figure();
-    subplot(1, 2, 1);
+    subplot(2, 1, 1);
     plot(tSpan, xlqr(1, :), '-r', 'LineWidth', 2);
     hold on;
     plot(tSpan, xlqr(2, :), '-g');
@@ -332,7 +374,7 @@ function plot_states(xlqr, tSpan)
     xlabel("Time(s)");
     ylabel("Displacement (m)");
 
-    subplot(1, 2, 2);
+    subplot(2, 1, 2);
     plot(tSpan, xlqr(7, :), '-r');
     hold on;
     plot(tSpan, xlqr(8, :), '-g');
@@ -343,5 +385,9 @@ function plot_states(xlqr, tSpan)
     legend('Pitch (about x)', 'Roll (about y)', 'Yaw (about z)', 'Pitch Rate', 'Roll Rate', 'Yaw Rate');
     title("Angular Displacements(-) and Velocities(--)");
     xlabel("Time(s)");
-    ylabel("Displacement (deg)");
+    ylabel("Displacement (rad)");
+end
+
+function [x0, y0, z0, xdot0, ydot0, zdot0, phi0, theta0, psi0, phidot0, thetadot0, psidot0] = unpack(X0)
+x0=X0(1); y0=X0(2); z0=X0(3); xdot0=X0(4); ydot0=X0(5); zdot0=X0(6); phi0=X0(7); theta0=X0(8); psi0=X0(9); phidot0=X0(10); thetadot0=X0(11); psidot0=X0(12);
 end
