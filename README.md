@@ -2,7 +2,7 @@
 
 UMICH EECS / MECHENG 561: Design of Digital Control Systems WN 2020
 
-Full State Feedback and Control of a Quadcopter Drone
+A Comparison of Quadcopter Drone Control Methods
 
 ## Documentation
 
