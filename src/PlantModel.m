@@ -56,8 +56,8 @@ z0 = 0;
 xdot0 = 0;
 ydot0 = 0;
 zdot0 = 0;
-phi0 = 5*(pi/180)*0;
-theta0 = 5*(pi/180)*0;
+phi0 = 10*(pi/180);
+theta0 = 10*(pi/180);
 psi0 = 0;
 phidot0 = 0;
 thetadot0 = 0;
@@ -76,8 +76,8 @@ kdt = 0.1;
 kpps = 0.0901;
 kdps = 0.0486;
 
-kpz = 4.0670;
-kdz = 2.9031;
+kpz =  3.9691;
+kdz = 2.7627;
 
 %% Load LQR gains
 LQRGoal1 = matfile('FiniteLQRGoal_1_K.mat');
